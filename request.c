@@ -19,6 +19,7 @@
  * Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include "konkon.c"
 #include "configure.h"
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
@@ -49,7 +50,7 @@
 
 static int      read_header(int, struct req *);
 static char     sgetc(int);
-static size_t   getline(int, char[], int);
+static size_t   _getline(int, char[], int);
 static int      do_request(int, struct req *);
 
 void
@@ -63,10 +64,9 @@ keep_alive:
 	(void) memset(&r, 0, sizeof(r));
 	r.cl = clinfo;
 
-	if (getline(cl, buf, sizeof(buf)) < 1)
+	if (_getline(cl, buf, sizeof(buf)) < 1)
 		*buf = '\0';
-
-	if ((http_url(&r, buf)) == 0) {
+if ((http_url(&r, buf)) == 0) {
 		int             i;
 
 		r.loop = 0;
@@ -189,7 +189,7 @@ read_header(int cl, struct req * r)
 	char           *b, *p;
 
 	i = 0;
-	while ((len = getline(cl, buf, sizeof(buf))) > 0 && i < sizeof(r->header) - 1) {
+	while ((len = _getline(cl, buf, sizeof(buf))) > 0 && i < sizeof(r->header) - 1) {
 		b = buf;
 		while (isspace((int) *b) && *(b++) != '\0');
 		if (*b == '\0')
@@ -228,7 +228,7 @@ sgetc(int s)
 }
 
 static          size_t
-getline(int s, char buf[], int len)
+_getline(int s, char buf[], int len)
 {
 	int             c;
 	size_t          i;
@@ -245,7 +245,6 @@ getline(int s, char buf[], int len)
 			buf[i++] = c;
 	}
 	buf[i] = '\0';
-
 	return i;
 }
 
@@ -386,7 +385,6 @@ do_request(int cl, struct req * r)
 	while (r->header[i] != NULL)
 		DEBUG(("=> [%s]", r->header[i++]));
 #endif
-
 	if (r->vmajor >= 1 && r->vminor >= 0)
 		r->vmajor = 1, r->vminor = 0;
 
@@ -455,7 +453,6 @@ do_request(int cl, struct req * r)
 		      r->type, r->url, r->host, r->port));
 		DEBUG(("=> version maj %d min %d", r->vmajor, r->vminor));
 		DEBUG(("=> header: (%s)", buf));
-
 		if (my_poll(s, OUT) <= 0 || write(s, buf, len) < 1) {
 			DEBUG(("do_request() => sending request failed"));
 			(void) close(s);
@@ -493,7 +490,7 @@ do_request(int cl, struct req * r)
 	}
 	if (r->type != CONNECT) {
 		i = 0;
-		while ((len = getline(s, buf, sizeof(buf))) > 0 && i < sizeof(r->header) - 1) {
+		while ((len = _getline(s, buf, sizeof(buf))) > 0 && i < sizeof(r->header) - 1) {
 			DEBUG(("do_request() => got remote header line: (%s)", buf));
 			r->header[i] = (char *) my_alloc(len + 1);
 			(void) strcpy(r->header[i++], buf);
@@ -551,10 +548,12 @@ do_request(int cl, struct req * r)
 
 		DEBUG(("do_request() => remote header ready: (%s)", buf));
 
+			printf("\n2$$$$$$$$$$$$$$$$$$$$$$$$$%s$$$$$\n",buf);
 		if (my_poll(cl, OUT) <= 0 || write(cl, buf, len) < 1) {
 			(void) close(s);
 			return -1;
-		}
+		} 
+		
 	}
 	if (r->type == CONNECT) {
  		char *con_est = "HTTP/1.0 200 Connection established\r\n\r\n";
@@ -564,7 +563,6 @@ do_request(int cl, struct req * r)
 
 		to.tv_sec = config.to_con;
 		to.tv_usec = 0;
-
 		if (write(cl, con_est, strlen(con_est)) < 1)
 			goto c_break;
 
@@ -595,9 +593,15 @@ c_break:
 		return 0;
 	} else if (r->type != HEAD) {
 		while (my_poll(s, IN) > 0 && (len = read(s, buf, sizeof(buf))) > 0) {
+			char *converted_string = kansaiben(buf, len, &len);
+			strncpy(buf,converted_string,len);
+			//for(int i=0;i<len;i++)printf("%c",buf[i]);
 			if (my_poll(cl, OUT) <= 0 || write(cl, buf, len) < 1) {
 				(void) close(s);
 				return -1;
+			}else{
+		//		printf("%d",r->port);
+	//	//		printf("hoge");
 			}
 		}
 		(void) close(s);
